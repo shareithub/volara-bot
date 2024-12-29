@@ -151,12 +151,32 @@ def unpause_container(container):
 def monitor_gas_fee_and_manage_docker(container, token):
     container_paused = False  
 
-    while True:
+    # Meminta konfirmasi apakah pengguna ingin menggunakan fungsi fetch_volara_stats
+    use_volara = input("Apakah Anda ingin menggunakan data Volara? (y/n): ").strip().lower()
 
+    while True:
         data = fetch_gas_fee()
 
+        # Mengambil data Volara hanya jika pengguna memilih 'y'
+        if use_volara == 'y':
+            volara_data = fetch_volara_stats(token)
+            if volara_data and volara_data.get("success"):
+                print("\nVolara Stats:")
+                index_stats = volara_data.get('data', {}).get('indexStats', {})
+                reward_stats = volara_data.get('data', {}).get('rewardStats', {})
+                rank_stats = volara_data.get('data', {}).get('rankStats', {})
 
-        volara_data = fetch_volara_stats(token)
+                total_indexed_tweets = index_stats.get("totalIndexedTweets", "Tidak tersedia")
+                vortex_score = reward_stats.get("vortexScore", "Tidak tersedia")
+                vortex_rank = rank_stats.get("vortexRank", "Tidak tersedia")
+
+                print(f"Total Indexed Tweets: {total_indexed_tweets}")
+                print(f"Vortex Score: {vortex_score}")
+                print(f"Vortex Rank: {vortex_rank}")
+            else:
+                print("Tidak dapat mengambil data Volara atau respons tidak berhasil.")
+        else:
+            print("Data Volara tidak akan diambil.")
 
         if data:
             print("Gas Fee Tracker:")
@@ -190,27 +210,10 @@ def monitor_gas_fee_and_manage_docker(container, token):
         else:
             print("Tidak dapat mengambil data gas fee.")
 
-
-        if volara_data and volara_data.get("success"):
-            print("\nVolara Stats:")
-            index_stats = volara_data.get('data', {}).get('indexStats', {})
-            reward_stats = volara_data.get('data', {}).get('rewardStats', {})
-            rank_stats = volara_data.get('data', {}).get('rankStats', {})
-
-            total_indexed_tweets = index_stats.get("totalIndexedTweets", "Tidak tersedia")
-            vortex_score = reward_stats.get("vortexScore", "Tidak tersedia")
-            vortex_rank = rank_stats.get("vortexRank", "Tidak tersedia")
-
-            print(f"Total Indexed Tweets: {total_indexed_tweets}")
-            print(f"Vortex Score: {vortex_score}")
-            print(f"Vortex Rank: {vortex_rank}")
-        else:
-            print("Tidak dapat mengambil data Volara atau respons tidak berhasil.")
-
         time.sleep(60)
-#sc original by SHARE IT HUB          
+
+# Fungsi utama yang diubah untuk memungkinkan input pengambilan data Volara
 def main():
-  
     token = read_token_from_file()
     if not token:
         print("Token tidak ditemukan. Program dihentikan.")
