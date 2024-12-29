@@ -1,2 +1,4 @@
 shareithub
 docker
+aiohttp
+colorama
