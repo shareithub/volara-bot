@@ -1,7 +1,6 @@
 import requests
 import time
 import docker
-import requests
 
 from shareithub import HTTPTools, ASCIITools
 
