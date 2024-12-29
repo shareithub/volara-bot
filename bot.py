@@ -14,7 +14,7 @@ PROXY = {
     "https": "PASTE YOUR CURL PROXY WITH HTTPS://",
 }
 
-
+#sc original by SHARE IT HUB 
 def read_token_from_file():
     try:
         with open('token.txt', 'r') as file:
@@ -24,7 +24,7 @@ def read_token_from_file():
         print(f"Terjadi kesalahan saat membaca token: {e}")
         return None
 
-
+#sc original by SHARE IT HUB  
 def fetch_gas_fee():
     url = "https://api.vanascan.io/api/v2/stats"
     try:
@@ -47,7 +47,7 @@ def fetch_gas_fee():
         print(f"Terjadi kesalahan: {e}")
         return None
 
-
+#sc original by SHARE IT HUB   
 def fetch_volara_stats(token):
     url = "https://api.volara.xyz/v1/user/stats"
     headers = {
@@ -64,7 +64,7 @@ def fetch_volara_stats(token):
         print(f"Terjadi kesalahan saat mengambil data Volara: {e}")
         return None
 
-
+#sc original by SHARE IT HUB    
 def list_running_containers():
     try:
         containers = client.containers.list() 
@@ -88,7 +88,7 @@ def list_running_containers():
         print(f"Terjadi kesalahan: {e}")
         return None
 
-
+#sc original by SHARE IT HUB      
 def pause_container(container):
     try:
         print(f"Menjeda container: {container.name}")
@@ -167,7 +167,7 @@ def monitor_gas_fee_and_manage_docker(container, token):
             print("Tidak dapat mengambil data Volara atau respons tidak berhasil.")
 
         time.sleep(60)
-
+#sc original by SHARE IT HUB          
 def main():
   
     token = read_token_from_file()
