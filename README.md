@@ -1,6 +1,6 @@
 TUTORIAL ??
 CHECK THIS VIDEO https://youtu.be/duKbkPuaAz4
 
-
-update :
-proxy taruh di proxy.txt
+UPDATE 31-12-2024
+Feature :
+Bisa memilih untuk menggunakan proxy atau tidak
