@@ -60,12 +60,10 @@ def log_warning(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"{Fore.YELLOW}[WARNING] {timestamp} - {message}")
 
-# Fungsi untuk mencetak log error dengan timestamp dan warna
 def log_error(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"{Fore.RED}[ERROR] {timestamp} - {message}")
 
-# Fungsi untuk mengambil data gas fee dari API
 def fetch_gas_fee(proxies=None):
     url = "https://api.vanascan.io/api/v2/stats"
     try:
@@ -74,11 +72,10 @@ def fetch_gas_fee(proxies=None):
             return response.json()  # Parse respons JSON
         elif response.status_code == 403:
             log_warning("Gagal mengambil data: 403. Akan mencoba ulang dengan proxy.")
-            # Ulangi permintaan dengan proxy
             if proxies:
                 response_with_proxy = requests.get(url, proxies=proxies)
                 if response_with_proxy.status_code == 200:
-                    return response_with_proxy.json()  # Berhasil dengan proxy
+                    return response_with_proxy.json()
                 else:
                     log_error(f"Gagal mengambil data dengan proxy: {response_with_proxy.status_code}")
             return None
@@ -144,15 +141,11 @@ def unpause_container(container):
     except Exception as e:
         log_error(f"Terjadi kesalahan saat melanjutkan container: {e}")
 
-
-def monitor_gas_fee_and_manage_docker(container, token, proxies=None):
+def monitor_gas_fee_and_manage_docker(container, token, proxies=None, gas_fee_threshold_high=0.3, gas_fee_threshold_low=0.2):
     container_paused = False 
 
     while True:
-
         data = fetch_gas_fee(proxies)
-
-
         volara_data = fetch_volara_stats(token, proxies)
 
         if data:
@@ -164,14 +157,14 @@ def monitor_gas_fee_and_manage_docker(container, token, proxies=None):
                 if average_gas is not None:
                     log_info(f"Gas Fee Average: {average_gas}")
 
-                    if average_gas > 0.3:
+                    if average_gas > gas_fee_threshold_high:
                         if not container_paused:
-                            log_warning("Gas fee tinggi! Menjeda container.")
+                            log_warning(f"Gas fee tinggi! Menjeda container.")
                             pause_container(container)
                             container_paused = True  
                         else:
                             log_info("Gas fee masih tinggi. Tidak ada tindakan tambahan.")
-                    elif average_gas < 0.2:
+                    elif average_gas < gas_fee_threshold_low:
                         if container_paused:
                             log_info("Gas fee rendah. Melanjutkan container.")
                             unpause_container(container)
@@ -186,7 +179,6 @@ def monitor_gas_fee_and_manage_docker(container, token, proxies=None):
                 log_warning("Data gas_prices tidak ditemukan dalam respons.")
         else:
             log_warning("Tidak dapat mengambil data gas fee.")
-
 
         if volara_data and volara_data.get("success"):
             log_info("\nVolara Stats:")
@@ -204,26 +196,24 @@ def monitor_gas_fee_and_manage_docker(container, token, proxies=None):
         else:
             log_warning("Tidak dapat mengambil data Volara atau respons tidak berhasil.")
 
-        time.sleep(60) 
-
+        time.sleep(60)
 
 def main():
-
     token = read_token_from_file()
     if not token:
         log_error("Token tidak ditemukan. Program dihentikan.")
         return
 
-
     proxies = read_proxies_from_file()
-
-
     proxy_settings = choose_proxy(proxies)
+
+    gas_fee_threshold_high = float(input("Masukkan batas atas gas fee untuk menjeda container (misalnya 0.3): "))
+    gas_fee_threshold_low = float(input("Masukkan batas bawah gas fee untuk melanjutkan container (misalnya 0.2): "))
 
     container = list_running_containers()
     if container:
         log_info(f"Memulai monitoring untuk container {container.name}...")
-        monitor_gas_fee_and_manage_docker(container, token, proxy_settings)
+        monitor_gas_fee_and_manage_docker(container, token, proxy_settings, gas_fee_threshold_high, gas_fee_threshold_low)
 
 if __name__ == "__main__":
     main()
