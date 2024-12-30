@@ -8,10 +8,34 @@ ASCIITools.print_ascii_intro()
 
 client = docker.from_env()
 
-PROXY = {
-    "http": "PASTE YOUR CURL PROXY WITH HTTP://",
-    "https": "PASTE YOUR CURL PROXY WITH HTTPS://",
-}
+def read_proxy_from_file():
+    """
+    Membaca proxy dari file proxy.txt
+    Setiap baris berisi satu proxy lengkap
+    Formatnya:
+    socks5://username:pass@ip:port
+    http://ip:port
+    socks4://ip:port
+    https://user:pass@ip:port
+    """
+    try:
+        with open('proxy.txt', 'r') as file:
+            proxies = []
+            for line in file:
+                proxy = line.strip()
+                if not proxy or proxy.startswith('#'):
+                    continue   
+                proxies.append({
+                    "http": proxy,
+                    "https": proxy
+                })
+            return proxies
+    except FileNotFoundError:
+        print("File proxy.txt tidak ditemukan")
+        return []
+    except Exception as e:
+        print(f"Error membaca file proxy: {e}")
+        return []
 
 #sc original by SHARE IT HUB 
 def read_token_from_file():
@@ -29,16 +53,34 @@ def fetch_gas_fee():
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            return response.json()  
+            return response.json()
         elif response.status_code == 403:
-            print("Gagal mengambil data: 403. Akan mencoba ulang dengan proxy.")
-
-            response_with_proxy = requests.get(url, proxies=PROXY)
-            if response_with_proxy.status_code == 200:
-                return response_with_proxy.json() 
-            else:
-                print(f"Gagal mengambil data dengan proxy: {response_with_proxy.status_code}")
+            print("Gagal mengambil data: 403. Akan mencoba dengan proxy.")
+            
+            proxy_list = read_proxy_from_file()
+            if not proxy_list:
+                print("Tidak ada proxy yang tersedia, periksa file proxy.txt")
                 return None
+
+            for proxy in proxy_list:
+                try:
+                    print(f"Mencoba proxy: {proxy['http']}")
+                    response_with_proxy = requests.get(url, proxies=proxy, timeout=10)
+                    if response_with_proxy.status_code == 200:
+                        print(f"Berhasil menggunakan proxy: {proxy['http']}")
+                        return response_with_proxy.json()
+                    else:
+                        print(f"Proxy gagal dengan status: {response_with_proxy.status_code}")
+                except requests.exceptions.ProxyError:
+                    print(f"Error koneksi proxy")
+                except requests.exceptions.ConnectTimeout:
+                    print(f"Timeout pada proxy")
+                except Exception as proxy_error:
+                    print(f"Error pada proxy: {proxy_error}")
+                print("Mencoba proxy selanjutnya...")
+                
+            print("Semua proxy telah dicoba dan gagal")
+            return None
         else:
             print(f"Gagal mengambil data: {response.status_code}")
             return None
