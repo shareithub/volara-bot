@@ -1,4 +1,4 @@
-import requests
+import cloudscraper
 import time
 import docker
 from datetime import datetime
@@ -11,38 +11,7 @@ init(autoreset=True)
 
 client = docker.from_env()
 
-def read_proxies_from_file():
-    proxies = []
-    try:
-        with open('proxy.txt', 'r') as file:
-            proxies = file.read().splitlines()
-        return proxies
-    except Exception as e:
-        log_error(f"Terjadi kesalahan saat membaca proxy: {e}")
-        return []
-
-def choose_proxy(proxies):
-    if not proxies:
-        log_warning("Tidak ada proxy yang tersedia.")
-        return None
-
-    log_info("Pilih proxy yang ingin digunakan:")
-    for i, proxy in enumerate(proxies, 1):
-        print(f"{i}. {proxy}")
-    print(f"{len(proxies) + 1}. Tidak menggunakan proxy")
-
-    choice = int(input("\nMasukkan nomor pilihan: "))
-    if 1 <= choice <= len(proxies):
-        selected_proxy = proxies[choice - 1]
-        log_info(f"Proxy yang dipilih: {selected_proxy}")
-        return {
-            "http": f"http://{selected_proxy}",
-            "https": f"https://{selected_proxy}"
-        }
-    else:
-        log_info("Tidak menggunakan proxy.")
-        return None
-
+# Fungsi untuk membaca token dari file
 def read_token_from_file():
     try:
         with open('token.txt', 'r') as file:
@@ -52,32 +21,32 @@ def read_token_from_file():
         log_error(f"Terjadi kesalahan saat membaca token: {e}")
         return None
 
+# Fungsi untuk log info
 def log_info(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"{Fore.GREEN}[INFO] {timestamp} - {message}")
 
+# Fungsi untuk log warning
 def log_warning(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"{Fore.YELLOW}[WARNING] {timestamp} - {message}")
 
+# Fungsi untuk log error
 def log_error(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"{Fore.RED}[ERROR] {timestamp} - {message}")
 
-def fetch_gas_fee(proxies=None):
+# Fungsi untuk mengambil data gas fee dengan cloudscraper
+def fetch_gas_fee():
     url = "https://api.vanascan.io/api/v2/stats"
     try:
-        response = requests.get(url, proxies=proxies)
+        scraper = cloudscraper.create_scraper()
+        response = scraper.get(url)
+
         if response.status_code == 200:
             return response.json()  # Parse respons JSON
         elif response.status_code == 403:
-            log_warning("Gagal mengambil data: 403. Akan mencoba ulang dengan proxy.")
-            if proxies:
-                response_with_proxy = requests.get(url, proxies=proxies)
-                if response_with_proxy.status_code == 200:
-                    return response_with_proxy.json()
-                else:
-                    log_error(f"Gagal mengambil data dengan proxy: {response_with_proxy.status_code}")
+            log_warning("Gagal mengambil data: 403.")
             return None
         else:
             log_error(f"Gagal mengambil data: {response.status_code}")
@@ -86,13 +55,15 @@ def fetch_gas_fee(proxies=None):
         log_error(f"Terjadi kesalahan: {e}")
         return None
 
-def fetch_volara_stats(token, proxies=None):
+# Fungsi untuk mengambil data Volara
+def fetch_volara_stats(token):
     url = "https://api.volara.xyz/v1/user/stats"
     headers = {
         "Authorization": f"Bearer {token}"
     }
     try:
-        response = requests.get(url, headers=headers, proxies=proxies)
+        scraper = cloudscraper.create_scraper()
+        response = scraper.get(url, headers=headers)
         if response.status_code == 200:
             return response.json()  
         else:
@@ -102,6 +73,7 @@ def fetch_volara_stats(token, proxies=None):
         log_error(f"Terjadi kesalahan saat mengambil data Volara: {e}")
         return None
 
+# Fungsi untuk memilih container yang berjalan
 def list_running_containers():
     try:
         containers = client.containers.list()  
@@ -125,28 +97,43 @@ def list_running_containers():
         log_error(f"Terjadi kesalahan: {e}")
         return None
 
+# Fungsi untuk menjeda container
 def pause_container(container):
     try:
-        log_info(f"Menjeda container: {container.name}")
-        container.pause()
-        log_info(f"Container {container.name} telah dijeda.")
+        container_status = container.attrs['State']
+        is_running = not container_status.get('Paused', False) and container_status.get('Running', False)
+
+        if is_running:
+            log_info(f"Menjeda container: {container.name}")
+            container.pause()
+            log_info(f"Container {container.name} telah dijeda.")
+        else:
+            log_info(f"Container {container.name} sudah dalam status paused atau berhenti.")
     except Exception as e:
         log_error(f"Terjadi kesalahan saat menjeda container: {e}")
 
+# Fungsi untuk melanjutkan container
 def unpause_container(container):
     try:
-        log_info(f"Melanjutkan container: {container.name}")
-        container.unpause()
-        log_info(f"Container {container.name} telah dilanjutkan.")
+        container_status = container.attrs['State']
+        is_paused = container_status.get('Paused', False)
+
+        if is_paused:
+            log_info(f"Melanjutkan container: {container.name}")
+            container.unpause()
+            log_info(f"Container {container.name} telah dilanjutkan.")
+        else:
+            log_info(f"Container {container.name} tidak dalam status paused, jadi tidak perlu dilanjutkan.")
     except Exception as e:
         log_error(f"Terjadi kesalahan saat melanjutkan container: {e}")
 
-def monitor_gas_fee_and_manage_docker(container, token, proxies=None, gas_fee_threshold_high=0.3, gas_fee_threshold_low=0.2):
+# Fungsi untuk memantau gas fee dan mengelola container
+def monitor_gas_fee_and_manage_docker(container, token, gas_fee_threshold_high=0.3, gas_fee_threshold_low=0.2):
     container_paused = False 
 
     while True:
-        data = fetch_gas_fee(proxies)
-        volara_data = fetch_volara_stats(token, proxies)
+        data = fetch_gas_fee()
+        volara_data = fetch_volara_stats(token)
 
         if data:
             log_info("Gas Fee Tracker:")
@@ -196,16 +183,14 @@ def monitor_gas_fee_and_manage_docker(container, token, proxies=None, gas_fee_th
         else:
             log_warning("Tidak dapat mengambil data Volara atau respons tidak berhasil.")
 
-        time.sleep(60)
+        time.sleep(15)
 
+# Fungsi utama untuk memilih container dan memulai monitoring
 def main():
     token = read_token_from_file()
     if not token:
         log_error("Token tidak ditemukan. Program dihentikan.")
         return
-
-    proxies = read_proxies_from_file()
-    proxy_settings = choose_proxy(proxies)
 
     gas_fee_threshold_high = float(input("Masukkan batas atas gas fee untuk menjeda container (misalnya 0.3): "))
     gas_fee_threshold_low = float(input("Masukkan batas bawah gas fee untuk melanjutkan container (misalnya 0.2): "))
@@ -213,7 +198,7 @@ def main():
     container = list_running_containers()
     if container:
         log_info(f"Memulai monitoring untuk container {container.name}...")
-        monitor_gas_fee_and_manage_docker(container, token, proxy_settings, gas_fee_threshold_high, gas_fee_threshold_low)
+        monitor_gas_fee_and_manage_docker(container, token, gas_fee_threshold_high, gas_fee_threshold_low)
 
 if __name__ == "__main__":
     main()
