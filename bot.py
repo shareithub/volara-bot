@@ -3,9 +3,7 @@ import time
 import docker
 from datetime import datetime
 from colorama import init, Fore, Style
-from shareithub import HTTPTools, ASCIITools
-
-ASCIITools.print_ascii_intro()
+from shareithub import shareithub
 
 init(autoreset=True)
 
@@ -127,7 +125,6 @@ def unpause_container(container):
     except Exception as e:
         log_error(f"Terjadi kesalahan saat melanjutkan container: {e}")
 
-# Fungsi untuk memantau gas fee dan mengelola container
 def monitor_gas_fee_and_manage_docker(container, token, gas_fee_threshold_high=0.3, gas_fee_threshold_low=0.2):
     container_paused = False 
 
@@ -185,7 +182,8 @@ def monitor_gas_fee_and_manage_docker(container, token, gas_fee_threshold_high=0
 
         time.sleep(15)
 
-# Fungsi utama untuk memilih container dan memulai monitoring
+shareithub()
+
 def main():
     token = read_token_from_file()
     if not token:
